@@ -1,0 +1,49 @@
+---
+title: "cleaning"
+author: "Alina Kereszt"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include=FALSE}
+# install packages
+install.packages("tidyverse")
+```
+
+```{r, include=FALSE}
+# load packages
+library(tidyverse)
+```
+
+The purpose of this script is to preprocess the data involved in this project, part of the Spatial Data Science course in the S23 Cultural Data Science elective at Aarhus University. This project seeks to search an inventory of flats for sale in Budapest, Hungary, based on a number of different criteria.
+
+# Preprocess flats
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
