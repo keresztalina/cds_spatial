@@ -292,9 +292,30 @@ rm(t) # remove unnecessary data frame
 df <- left_join(df, r)
 ```
 
+Unnecessary columns (used only for pulling data together) are removed and unique rows are kept.
+```{r}
+df2 <- df %>% 
+  select(!c(stop_id,
+            trip_id, 
+            route_id, 
+            route_short_name))
+df2 <- unique(df2)
+```
 
+Sometimes, the same stop for different directions of a route is located on opposite sides of the street. Since we do not want them to be counted as separate stops (as they are essentially the same stop split into two), the mean of their coordinates is taken.
+```{r}
+stops_cleaned <- df2 %>% 
+  group_by(stop_name, route_type) %>% 
+  summarise(lat = mean(stop_lat),
+            lon = mean(stop_lon))
+```
 
-
+## Save cleaned data
+In order to only run the preprocessing once, the preprocessed data is saved.
+```{r}
+write.csv(stops_cleaned, 
+          "data/stops_revised.csv")
+```
 
 
 

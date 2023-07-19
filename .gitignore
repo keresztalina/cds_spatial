@@ -6,3 +6,4 @@ data/routes.txt
 data/stop_times.txt
 data/stops.txt
 data/trips.txt
+data/stops_revised.csv
