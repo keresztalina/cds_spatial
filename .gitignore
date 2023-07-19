@@ -1,3 +1,8 @@
 
 data/flats.csv
 .Rproj.user
+data/flats_revised.csv
+data/routes.txt
+data/stop_times.txt
+data/stops.txt
+data/trips.txt

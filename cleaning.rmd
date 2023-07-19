@@ -18,7 +18,7 @@ library(tidyr)
 
 The purpose of this script is to preprocess the data involved in this project, part of the Spatial Data Science course in the S23 Cultural Data Science elective at Aarhus University. This project seeks to search an inventory of flats for sale in Budapest, Hungary, based on a number of different criteria.
 
-# Preprocess flats
+# Preprocess 'flats.csv'
 ## Load data
 The data is first loaded.
 ```{r}
@@ -213,12 +213,84 @@ flats$location_str <- as.numeric(flats$location_str)
 names(flats)[names(flats) == "location_str"] <- "quarter"
 ```
 
+## Save as new file
+This is so that the preprocessing code only needs to be run once.
+```{r}
+write.csv(flats, 
+          "data/flats_revised.csv")
+```
 
+# Preprocess public transport data
+## Load data
+The data is first loaded.
+```{r}
+stops <- read.csv("data/stops.txt")
+stop_times <- read.csv("data/stop_times.txt")
+trips <- read.csv("data/trips.txt")
+routes <- read.csv("data/routes.txt")
+```
 
+## Select necessary variables
+Not all the variables are needed for our analysis, so only the most necessary are kept for ease of data wrangling.
+```{r}
+s <- stops %>% 
+  select(stop_id,
+         stop_name,
+         stop_lat,
+         stop_lon)
+rm(stops)
+```
 
+```{r}
+r <- routes %>% 
+  select(route_id,
+         route_short_name,
+         route_type)
+rm(routes) # remove unnecessary data frame
 
+# convert variable to factor for easier processing
+r$route_type <- as.factor(r$route_type)
 
+# define levels
+levels(r$route_type) <- c("tram",
+                          "metro",
+                          "bus",
+                          "ship",
+                          "trolleybus",
+                          "commuter rail")
+```
 
+```{r}
+t <- trips %>% 
+  select(route_id,
+         trip_id) 
+rm(trips) # remove unnecessary data frame
+```
+
+```{r}
+st <- stop_times %>% 
+  select(trip_id,
+         stop_id)
+rm(stop_times) # remove unnecessary data frame
+```
+
+## Pull data together
+The data needed for our analysis is divided among four data frames, which need to be pulled together. Sometimes, certain variables do not find their correspondences, resulting in NAs. These rows are always removed. This results in some loss of data, but the relative quantity of rows containing NAs is always negligible.
+```{r}
+# join data of stops with data of trips
+df <- left_join(s, st)
+df <- df %>% 
+  filter(!is.na(trip_id))
+rm(s) # remove unnecessary data frame
+rm(st) # remove unnecessary data frame
+
+# join with data of possible routes
+df <- left_join(df, t)
+rm(t) # remove unnecessary data frame
+
+# join with data of route info
+df <- left_join(df, r)
+```
 
 
 
