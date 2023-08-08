@@ -1,0 +1,117 @@
+---
+title: "distance calculations"
+author: "Alina Kereszt"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include=FALSE}
+# install packages
+# options("install.lock"=FALSE)
+# install.packages("tidyverse")
+# install.packages("leaflet")
+# install.packages("geosphere")
+# install.packages("measurements")
+```
+
+```{r, include=FALSE}
+# load packages
+library(tidyverse)
+library(leaflet)
+library(geosphere)
+library(RColorBrewer)
+library(measurements)
+```
+
+# Read data
+These data files have been cleaned in the 'cleaning.rmd' file. Please go through that file if you have not done so.
+```{r}
+stops <- read.csv("data/stops_revised.csv")
+flats <- read.csv("data/flats_revised.csv")
+```
+
+For the center of Budapest, there was no official information to be found. The geographical center of Budapest is located outside of what is deemed the inner city, so it was not suitable coordinates. As such, I went with the point determined by Wikipedia.
+
+```{r}
+bud_center <- data.frame(lat = c(47.4925),
+                         lon = c(19.051389))
+```
+
+# Calculate flat distances to center
+```{r}
+flats$distance_to_bud_center <- distHaversine(
+  p1 = cbind(flats$lon, flats$lat),
+  p2 = cbind(bud_center$lon, bud_center$lat)
+)
+```
+
+# Calculate flat distance to closest stop
+## Pooled stops
+```{r}
+# initialize an empty vector to store the nearest distances
+nearest_distances <- vector("numeric", length = nrow(flats))
+
+# loop through each row in "flats" and calculate the distance to each row in "stops", then select the smallest one
+for (i in 1:nrow(flats)) {
+  distances_to_stops <- distHaversine(cbind(flats[i, "lon"], flats[i, "lat"]),
+                                      cbind(stops$lon, stops$lat))
+  nearest_distances[i] <- min(distances_to_stops)
+}
+
+# add the nearest distance to the "flats" dataframe as a new column
+flats$nearest_stop_distance <- nearest_distances
+```
+
+## Rail-type stops (not affected by traffic jams)
+```{r}
+# filter for rail-type stops
+rail_stops <- stops %>% 
+  filter(route_type == "tram" | route_type == "metro" | route_type == "commuter rail")
+
+# initialize an empty vector to store the nearest distances
+nearest_distances_rail <- vector("numeric", length = nrow(flats))
+
+# loop through each row in "flats" and calculate the distance to each row in "stops", then select the smallest one
+for (i in 1:nrow(flats)) {
+  distances_to_stops <- distHaversine(cbind(flats[i, "lon"], flats[i, "lat"]),
+                                      cbind(rail_stops$lon, rail_stops$lat))
+  nearest_distances_rail[i] <- min(distances_to_stops)
+}
+
+# add the nearest distance to the "flats" dataframe as a new column
+flats$nearest_stop_distance_rail <- nearest_distances_rail
+```
+
+# Save data
+```{r}
+write.csv(flats, 
+          "data/flats_w_distances.csv",
+          row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

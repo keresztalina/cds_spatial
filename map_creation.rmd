@@ -1,0 +1,296 @@
+---
+title: "map creation"
+author: "Alina Kereszt"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include=FALSE}
+# install packages
+# options("install.lock"=FALSE)
+# install.packages("tidyverse")
+# install.packages("leaflet")
+# install.packages("geosphere")
+# install.packages("measurements")
+```
+
+```{r, include=FALSE}
+# load packages
+library(tidyverse)
+library(leaflet)
+library(geosphere)
+library(RColorBrewer)
+library(measurements)
+```
+
+# Read data
+These data files are the result of 'cleaning.rmd' and 'distance_calc.rmd'. Please go through those files if you have not yet done so.
+```{r}
+flats <- read.csv("data/flats_w_distances.csv")
+stops <- read.csv("data/stops_revised.csv")
+```
+
+# Parameter exploration
+**In this section, you can see the optional parameters. In order to run the selection function, please adjust the contents of each selection to suit what you are looking for.**
+
+## Overview of whole dataset
+```{r}
+str(flats)
+```
+
+## Options selection
+Always keep the values that apply. E.g. if you don't care whether a flat allows animals, you can keep c("yes", "only small pets", "no", NA), however if you have a medium-sized dog, you would want to keep only c("yes"). Please try not to add contradicting information, e.g. a 12 m2 flat with 5 rooms, or a flat in the 23rd quarter that is 500 m from the center, as you will receive an error later on.
+
+Here, the parameters are set to base values:
+```{r}
+# Does the flat allow pets?
+demo_animals_choice <- c("yes", 
+                    "only small pets", 
+                    "no", 
+                    NA)
+
+# What is the condition of the flat?
+demo_condition_choice <- c("newly built",
+                      "like new",
+                      "renovated",
+                      "good",
+                      "in need of renovation",
+                      NA)
+
+# Does the building have an elevator?
+demo_elevator_choice <- c("yes",
+                     "no",
+                     NA)
+
+# Which quarter of Budapest is the flat located in?
+demo_quarter_choice <- c(1, 2, 3, 4, 5,
+                    6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15,
+                    16, 17, 18, 19, 20,
+                    21, 22, 23)
+
+# What is the price range for the apartment?
+demo_min_price <- 50000
+demo_max_price <- 2000000
+
+# How many rooms does the flat have?
+demo_rooms_choice <- c(1, 2, 3, 4, 5)
+
+# How big is the flat?
+demo_min_size <- 12
+demo_max_size <- 500
+
+# How far in meters is the flat from the center of Budapest?
+demo_min_distance_center <- 0
+demo_max_distance_center <- 18000
+
+# How far in meters is the flat from the nearest public transport stop of any kind?
+demo_min_distance_stop_any <- 0
+demo_max_distance_stop_any <- 700
+
+# How far in meters is the flat from the nearest railway-type public transport stop?
+demo_min_distance_stop_rail <- 0
+demo_max_distance_stop_rail <- 7000
+```
+
+Here, an example is shown. In this case, the user has the following stipulations:
+
+- able to keep small pets
+- the building is in some kind of good condition
+- the building has an elevator
+- price not higher than 150 000 HUF/month
+- at least 2 rooms
+- at least 40 m2 but no greater than 120 m2
+- at most 5 km from the center
+- at most 100 m from the nearest public transport stop of any kind
+```{r}
+# Does the flat allow pets?
+my_animals_choice <- c("yes", 
+                    "only small pets")
+
+# What is the condition of the flat?
+my_condition_choice <- c("newly built",
+                      "like new",
+                      "renovated",
+                      "good")
+
+# Does the building have an elevator?
+my_elevator_choice <- c("yes")
+
+# Which quarter of Budapest is the flat located in?
+my_quarter_choice <- c(1, 2, 3, 4, 5,
+                    6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15,
+                    16, 17, 18, 19, 20,
+                    21, 22, 23)
+
+# What is the price range for the apartment?
+my_min_price <- 50000
+my_max_price <- 150000
+
+# How many rooms does the flat have?
+my_rooms_choice <- c(2, 3, 4, 5)
+
+# How big is the flat?
+my_min_size <- 40
+my_max_size <- 120
+
+# How far in meters is the flat from the center of Budapest?
+my_min_distance_center <- 0
+my_max_distance_center <- 5000
+
+# How far in meters is the flat from the nearest public transport stop of any kind?
+my_min_distance_stop_any <- 0
+my_max_distance_stop_any <- 100
+
+# How far in meters is the flat from the nearest railway-type public transport stop?
+my_min_distance_stop_rail <- 0
+my_max_distance_stop_rail <- 7000
+```
+
+# Define function
+```{r}
+show_options <- function(data,
+                        stops_data,
+                        animals_choice,
+                        condition_choice,
+                        elevator_choice,
+                        quarter_choice,
+                        min_price,
+                        max_price,
+                        rooms_choice,
+                        min_size,
+                        max_size,
+                        min_distance_center,
+                        max_distance_center,
+                        min_distance_stop_any,
+                        max_distance_stop_any,
+                        min_distance_stop_rail,
+                        max_distance_stop_rail) {
+  
+  ##### FILTER DATA BY INPUT PARAMETERS
+  selection <- flats %>% 
+  
+    # apply animals filter
+    filter(animals %in% animals_choice) %>% 
+    
+    # apply condition filter
+    filter(condition %in% condition_choice) %>% 
+    
+    # apply elevator choice
+    filter(elevator %in% elevator_choice) %>% 
+    
+    # apply quarter choice
+    filter(quarter %in% quarter_choice) %>% 
+    
+    # apply price choice
+    filter(price >= min_price & price <= max_price) %>% 
+    
+    # apply room number choice
+    filter(rooms %in% rooms_choice) %>% 
+    
+    # apply size choice
+    filter(size >= min_size & size <= max_size) %>% 
+    
+    # apply distance from center choice
+    filter(distance_to_bud_center >= min_distance_center & distance_to_bud_center <= max_distance_center) %>% 
+    
+    # apply distance from any public transport filter
+    filter(nearest_stop_distance >= min_distance_stop_any & nearest_stop_distance <= max_distance_stop_any) %>% 
+    
+    # apply distance from rails transport filter
+    filter(nearest_stop_distance_rail >= min_distance_stop_rail & nearest_stop_distance_rail <= max_distance_stop_rail)
+  
+  ##### PLOT
+  if (nrow(selection) == 0) {
+    
+    print("There are no listings that match your criteria. Please broaden your search parameters.")
+    
+  } else {
+    
+    mymap <- leaflet() %>%
+      addTiles() %>% 
+      setView(
+        lng = 19.0513, 
+        lat = 47.4925,
+        zoom = 12)
+    
+    for (i in seq_len(nrow(selection))) {
+      lat <- selection$lat[i]
+      lon <- selection$lon[i]
+      url <- selection$url[i]
+      price <- selection$price[i]
+      
+      mymap <- mymap %>%
+        addMarkers(lng = lon, 
+                   lat = lat,
+                   popup = paste0(price,
+                                  " HUF, ",
+                                  "<a href='", 
+                                  url, 
+                                  "' target='_blank'>See listing</a>"))
+    }
+    
+    for (i in seq_len(nrow(stops))) {
+      lat <- stops$lat[i]
+      lon <- stops$lon[i]
+      routes <- stops$routes[i]
+      
+      mymap <- mymap %>%
+        addCircleMarkers(lng = lon, 
+                         lat = lat,
+                         radius = routes * 0.3, 
+                         fillOpacity = 0.3,
+                         color = "blue", 
+                         stroke = FALSE)
+    }
+    
+    mymap
+    
+  }
+}
+```
+
+# Run function with self-set parameters
+```{r}
+show_options(flats,
+             stops,
+             my_animals_choice,
+             my_condition_choice,
+             my_elevator_choice,
+             my_quarter_choice,
+             my_min_price,
+             my_max_price,
+             my_rooms_choice,
+             my_min_size,
+             my_max_size,
+             my_min_distance_center,
+             my_max_distance_center,
+             my_min_distance_stop_any,
+             my_max_distance_stop_any,
+             my_min_distance_stop_rail,
+             my_max_distance_stop_rail)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -7,16 +7,16 @@ output: html_document
 
 ```{r, include=FALSE}
 # install packages
-#install.packages("tidyverse")
+# options("install.lock"=FALSE)
+# install.packages("tidyverse")
 ```
 
 ```{r, include=FALSE}
 # load packages
 library(tidyverse)
-library(tidyr)
 ```
 
-The purpose of this script is to preprocess the data involved in this project, part of the Spatial Data Science course in the S23 Cultural Data Science elective at Aarhus University. This project seeks to search an inventory of flats for sale in Budapest, Hungary, based on a number of different criteria.
+The purpose of this script is to preprocess the data involved in this project, part of the Spatial Data Science course in the S23 Cultural Data Science elective at Aarhus University. This project seeks to search an inventory of flats for sale in Budapest, Hungary, based on a number of different criteria. In order for the sake of simplicity and because the searched parameters are often not directly relevant to spatial analysis, some parameters, that in real life would be important, have been removed.
 
 # Preprocess 'flats.csv'
 ## Load data
@@ -29,14 +29,19 @@ flats <- read.csv("data/flats.csv")
 Some columns are unnecessary for the purpose of this analysis. These are removed.
 ```{r}
 flats <- flats %>% 
-  select(!c(X, 
+  dplyr::select(!c(X, 
             common_cost,
             date_scraped,
             description,
+            energy_certificate,
             furniture,
+            garden,
+            heating_type,
             image_folder_name,
             image_urls,
-            title))
+            title,
+            type,
+            view_type))
 ```
 
 ## Translation-type transformations
@@ -74,85 +79,9 @@ Transforming the 'elevator' column.
 flats$elevator <- as.factor(flats$elevator)
 
 # convert contents to English
-levels(flats$elevator)
 levels(flats$elevator) <- c(NA, 
                             "no",
                             "yes")
-```
-
-Transforming the 'energy_certificate' column.
-```{r}
-# convert to factor
-flats$energy_certificate <- as.factor(flats$energy_certificate)
-
-# convert contents to English
-levels(flats$energy_certificate) <- c(NA,
-                                      "a",
-                                      "a+",
-                                      "b", 
-                                      "c",
-                                      "d",
-                                      "e",
-                                      "f",
-                                      "g",
-                                      "h",
-                                      "i" )
-```
-
-Transforming the 'garden' column.
-```{r}
-# convert to factor
-flats$garden <- as.factor(flats$garden)
-
-# convert contents to English
-levels(flats$garden) <- c(NA,
-                          "yes",
-                          "no")
-```
-
-Transforming the 'heating_type' column.
-```{r}
-# convert to factor
-flats$heating_type <- as.factor(flats$heating_type)
-
-# convert contents to English
-levels(flats$heating_type) <- c(NA,
-                                "other",
-                                "central heating with own meter (entire building)",
-                                "electric",
-                                "circulated hot water",
-                                "gas convection",
-                                "central heating (entire building)",
-                                "fireplace",
-                                "central heating (apartment)",
-                                "district heating")
-```
-
-Transforming the 'type' column.
-```{r}
-# convert to factor
-flats$type <- as.factor(flats$type)
-
-# convert contents to English
-levels(flats$type) <- c(NA,
-                        "other",
-                        "prefabricated concrete",
-                        "brick")
-```
-
-Transforming the 'view_type' column.
-```{r}
-# convert to factor
-flats$view_type <- as.factor(flats$view_type)
-
-# convert contents to English
-levels(flats$view_type) <- c(NA,
-                             "garden",
-                             "whole panorama",
-                             "partial panorama",
-                             "nature",
-                             "yard",
-                             "street")
 ```
 
 ## Numeric-type transformations
@@ -163,15 +92,21 @@ flats$rooms <- as.numeric(flats$rooms)
 flats$size <- as.numeric(flats$size)
 ```
 
-The prices listed for these apartments show the price per square meter. We also want to know the total price.
+Removing NAs from numeric columns - factors like price are central to this analysis.
 ```{r}
-# rename column for easier understanding
-names(flats)[names(flats) == "price"] <- "price_per_sq_meter"
-
-# create column for total price by multiplying the price per square meter
-# with the amount of square meters
-flats$price_total <- flats$price_per_sq_meter * flats$size
+flats <- flats %>% 
+  filter(!is.na(price)) %>% 
+  filter(!is.na(rooms)) %>% 
+  filter(!is.na(size))
 ```
+
+With regard to price, there are also some likely erroneous values listed. Flats are unlikely to cost e.g. 120 HUF per month (the lowest value in the dataset - equivalent to 2.5 DKK), nor e.g. 136 377 450 HUF (the highest value in the dataset - equivalent to 2 607 351 DKK). I have decided to set a minimum of 50 000 HUF and a maximum of 2 000 000 HUF. There is also a similar problem with flat sizes - the largest is listed as being 45 000 m2, so I have capped flat size at 500 m2.
+```{r}
+flats <- flats %>% 
+  filter(price >= 50000 & price <= 2000000) %>% 
+  filter(size <= 500)
+```
+
 
 The coordinates for each apartment are listed within a single cell. For easier handling, the coordinates are split into latitude and longitude.
 ```{r}
@@ -190,9 +125,12 @@ flats$longitude <- gsub("\\)",
                         "",
                         flats$longitude)
 
+names(flats)[names(flats) == "latitude"] <- "lat"
+names(flats)[names(flats) == "longitude"] <- "lon"
+
 # ensure appropriate encoding
-flats$latitude <- as.numeric(flats$latitude)
-flats$longitude <- as.numeric(flats$longitude)
+flats$lat <- as.numeric(flats$lat)
+flats$lon <- as.numeric(flats$lon)
 ```
 
 The administrative divisions of Budapest are numbered. Here, these numbers are extracted.
@@ -217,7 +155,8 @@ names(flats)[names(flats) == "location_str"] <- "quarter"
 This is so that the preprocessing code only needs to be run once.
 ```{r}
 write.csv(flats, 
-          "data/flats_revised.csv")
+          "data/flats_revised.csv",
+          row.names = FALSE)
 ```
 
 # Preprocess public transport data
@@ -297,17 +236,24 @@ Unnecessary columns (used only for pulling data together) are removed and unique
 df2 <- df %>% 
   select(!c(stop_id,
             trip_id, 
-            route_id, 
-            route_short_name))
+            route_id))
 df2 <- unique(df2)
 ```
 
+```{r}
+df_new <- df2 %>%
+  group_by(stop_name, stop_lat, stop_lon, route_type) %>%
+  summarize(route_count = n_distinct(route_short_name))
+```
+
+
 Sometimes, the same stop for different directions of a route is located on opposite sides of the street. Since we do not want them to be counted as separate stops (as they are essentially the same stop split into two), the mean of their coordinates is taken.
 ```{r}
-stops_cleaned <- df2 %>% 
+stops_cleaned <- df_new %>% 
   group_by(stop_name, route_type) %>% 
   summarise(lat = mean(stop_lat),
-            lon = mean(stop_lon))
+            lon = mean(stop_lon),
+            routes = sum(route_count))
 ```
 
 ## Save cleaned data
