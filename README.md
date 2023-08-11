@@ -7,7 +7,7 @@ The data can be downloaded from the following sources:
 - data of rental apartment listings: https://www.kaggle.com/datasets/gaborvecsei/flats-to-rent-at-budapest ("flats.csv"); and
 - data of Budapest public transport: https://bkk.hu/fejlesztesek/fejlesztoknek/ ("stops.txt", "stop_times.txt", "trips.txt", "routes.txt").
 
-After cloning the repository locally, place the data files into the established "data" folder. Then run through the R markdown files in the following order:
+After cloning the repository locally, place the data files into a "data" folder established directly within the repository folder. Then run through the R markdown files in the following order:
 
 1. **cleaning.rmd**: Here, you do not need to change anything.
 2. **distance_calc.rmd**: Here, you do not need to change anything.
